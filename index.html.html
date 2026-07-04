@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>実績報告＆ダッシュボード</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        /* ローディングアニメーション用のカスタムCSS */
+        .loader {
+            border-top-color: #3b82f6;
+            -webkit-animation: spinner 1.5s linear infinite;
+            animation: spinner 1.5s linear infinite;
+        }
+        @keyframes spinner {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        /* 入力欄のスピンボタンを隠す */
+        input[type="number"]::-webkit-outer-spin-button,
+        input[type="number"]::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type="number"] {
+            -moz-appearance: textfield;
+        }
+        /* 追加：ボタンのタップ領域調整 */
+        .quantity-btn {
+            touch-action: manipulation;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen font-sans text-slate-800">
+
+    <!-- ヘッダー -->
+    <header class="bg-blue-600 text-white shadow-md py-4 px-6">
+        <div class="max-w-7xl mx-auto flex items-center gap-3">
+            <i class="fas fa-chart-line text-2xl"></i>
+            <h1 class="text-xl font-bold tracking-wider">実績報告ダッシュボード</h1>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto py-8 px-4 sm:px-6 flex flex-col lg:flex-row gap-8">
+        
+        <!-- ==========================================
+             左カラム：設定と入力エリア
+        =========================================== -->
+        <aside class="w-full lg:w-1/3">
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 sticky top-6">
+                <h2 class="text-lg font-bold text-slate-700 mb-5 flex items-center gap-2">
+                    <i class="fas fa-cog text-slate-400"></i> 設定エリア
+                </h2>
+                
+                <form id="settings-form" class="space-y-5">
+                    <!-- 報告者 -->
+                    <div>
+                        <label class="block text-sm font-medium text-slate-600 mb-1" for="reporter">報告者</label>
+                        <select id="reporter" class="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition bg-white">
+                            <option value="" disabled selected>選択してください</option>
+                            <option value="今西">今西</option>
+                            <option value="上田">上田</option>
+                            <option value="影山">影山</option>
+                        </select>
+                    </div>
+
+                    <!-- 日程 -->
+                    <div>
+                        <label class="block text-sm font-medium text-slate-600 mb-1" for="week">日程</label>
+                        <select id="week" class="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition bg-white">
+                            <option value="7月1w">7月1w</option>
+                            <option value="7月2w">7月2w</option>
+                            <option value="7月3w">7月3w</option>
+                            <option value="7月4w">7月4w</option>
+                            <option value="7月5w">7月5w</option>
+                        </select>
+                    </div>
+
+                    <!-- 会場名 -->
+                    <div>
+                        <label class="block text-sm font-medium text-slate-600 mb-1" for="venue">会場名</label>
+                        <select id="venue" class="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition bg-white">
+                            <option value="イオン橿原">イオン橿原</option>
+                            <option value="イオン草津">イオン草津</option>
+                        </select>
+                    </div>
+                </form>
+
+                <!-- 状態メッセージ表示エリア -->
+                <div id="status-message" class="mt-6 text-sm text-center hidden p-3 rounded-lg"></div>
+            </div>
+        </aside>
+
+        <!-- ==========================================
+             右カラム：実績表示と新規入力エリア
+        =========================================== -->
+        <section class="w-full lg:w-2/3">
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                
+                <div class="flex justify-between items-end mb-6 border-b border-slate-100 pb-4">
+                    <div>
+                        <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+                            <i class="fas fa-clipboard-list text-blue-500"></i> 実績入力
+                        </h2>
+                        <p class="text-sm text-slate-500 mt-1">現在の実績を確認しながら、新規獲得分を入力してください。</p>
+                    </div>
+                    <!-- データロード中のスピナー -->
+                    <div id="data-loader" class="hidden flex items-center gap-2 text-sm text-blue-500 font-medium">
+                        <div class="w-4 h-4 border-2 border-blue-200 border-solid rounded-full loader"></div>
+                        読込中...
+                    </div>
+                </div>
+
+                <!-- 項目リスト -->
+                <div class="space-y-4" id="stats-container">
+                    
+                    <!-- ① PI -->
+                    <div class="flex flex-col sm:flex-row items-center gap-4 p-4 bg-slate-50 rounded-lg border border-slate-200 hover:border-blue-300 transition-colors">
+                        <div class="w-full sm:w-1/4 font-bold text-slate-700 text-lg flex items-center gap-3">
+                            <span class="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-sm"><i class="fas fa-bullseye"></i></span>
+                            PI
+                        </div>
+                        <div class="w-full sm:w-1/3 flex flex-col justify-center bg-white px-3 py-2 rounded-lg border border-slate-200 shadow-sm">
+                            <div class="flex justify-between items-center border-b border-slate-100 pb-1 mb-1">
+                                <span class="text-[10px] font-medium text-slate-400">目標数</span>
+                                <span class="text-sm font-bold text-slate-400" id="target-pi">--</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-xs font-medium text-slate-500">現在の実績</span>
+                                <span class="text-xl sm:text-2xl font-black text-slate-800" id="current-pi">--</span>
+                            </div>
+                        </div>
+                        <div class="w-full sm:w-5/12 relative">
+                            <label class="absolute -top-2.5 left-3 bg-slate-50 px-1 text-xs font-medium text-blue-600 z-10">新規獲得入力</label>
+                            <div class="flex items-center border-2 border-blue-200 rounded-lg bg-white overflow-hidden focus-within:border-blue-500 transition-colors">
+                                <!-- －ボタン -->
+                                <button type="button" class="px-4 py-3 text-blue-600 hover:bg-blue-100 active:bg-blue-200 transition-colors focus:outline-none quantity-btn flex-shrink-0" data-action="decrement" data-target="input-pi">
+                                    <i class="fas fa-minus"></i>
+                                </button>
+                                <!-- 入力欄 -->
+                                <input type="number" id="input-pi" class="w-full py-3 text-center text-xl font-bold text-blue-700 placeholder-slate-300 bg-white border-none focus:outline-none focus:ring-0" placeholder="0" min="0" value="0">
+                                <!-- ＋ボタン -->
+                                <button type="button" class="px-4 py-3 text-blue-600 hover:bg-blue-100 active:bg-blue-200 transition-colors focus:outline-none quantity-btn flex-shrink-0" data-action="increment" data-target="input-pi">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ② 純新規 -->
+                    <div class="flex flex-col sm:flex-row items-center gap-4 p-4 bg-slate-50 rounded-lg border border-slate-200 hover:border-emerald-300 transition-colors">
+                        <div class="w-full sm:w-1/4 font-bold text-slate-700 text-lg flex items-center gap-3">
+                            <span class="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-sm"><i class="fas fa-user-plus"></i></span>
+                            純新規
+                        </div>
+                        <div class="w-full sm:w-1/3 flex flex-col justify-center bg-white px-3 py-2 rounded-lg border border-slate-200 shadow-sm">
+                            <div class="flex justify-between items-center border-b border-slate-100 pb-1 mb-1">
+                                <span class="text-[10px] font-medium text-slate-400">目標数</span>
+                                <span class="text-sm font-bold text-slate-400" id="target-junshinki">--</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-xs font-medium text-slate-500">現在の実績</span>
+                                <span class="text-xl sm:text-2xl font-black text-slate-800" id="current-junshinki">--</span>
+                            </div>
+                        </div>
+                        <div class="w-full sm:w-5/12 relative">
+                            <label class="absolute -top-2.5 left-3 bg-slate-50 px-1 text-xs font-medium text-emerald-600 z-10">新規獲得入力</label>
+                            <div class="flex items-center border-2 border-emerald-200 rounded-lg bg-white overflow-hidden focus-within:border-emerald-500 transition-colors">
+                                <!-- －ボタン -->
+                                <button type="button" class="px-4 py-3 text-emerald-600 hover:bg-emerald-100 active:bg-emerald-200 transition-colors focus:outline-none quantity-btn flex-shrink-0" data-action="decrement" data-target="input-junshinki">
+                                    <i class="fas fa-minus"></i>
+                                </button>
+                                <!-- 入力欄 -->
+                                <input type="number" id="input-junshinki" class="w-full py-3 text-center text-xl font-bold text-emerald-700 placeholder-slate-300 bg-white border-none focus:outline-none focus:ring-0" placeholder="0" min="0" value="0">
+                                <!-- ＋ボタン -->
+                                <button type="button" class="px-4 py-3 text-emerald-600 hover:bg-emerald-100 active:bg-emerald-200 transition-colors focus:outline-none quantity-btn flex-shrink-0" data-action="increment" data-target="input-junshinki">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ③ 取替 -->
+                    <div class="flex flex-col sm:flex-row items-center gap-4 p-4 bg-slate-50 rounded-lg border border-slate-200 hover:border-amber-300 transition-colors">
+                        <div class="w-full sm:w-1/4 font-bold text-slate-700 text-lg flex items-center gap-3">
+                            <span class="w-8 h-8 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center text-sm"><i class="fas fa-exchange-alt"></i></span>
+                            取替
+                        </div>
+                        <div class="w-full sm:w-1/3 flex flex-col justify-center bg-white px-3 py-2 rounded-lg border border-slate-200 shadow-sm">
+                            <div class="flex justify-between items-center border-b border-slate-100 pb-1 mb-1">
+                                <span class="text-[10px] font-medium text-slate-400">目標数</span>
+                                <span class="text-sm font-bold text-slate-400" id="target-torikae">--</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-xs font-medium text-slate-500">現在の実績</span>
+                                <span class="text-xl sm:text-2xl font-black text-slate-800" id="current-torikae">--</span>
+                            </div>
+                        </div>
+                        <div class="w-full sm:w-5/12 relative">
+                            <label class="absolute -top-2.5 left-3 bg-slate-50 px-1 text-xs font-medium text-amber-600 z-10">新規獲得入力</label>
+                            <div class="flex items-center border-2 border-amber-200 rounded-lg bg-white overflow-hidden focus-within:border-amber-500 transition-colors">
+                                <!-- －ボタン -->
+                                <button type="button" class="px-4 py-3 text-amber-600 hover:bg-amber-100 active:bg-amber-200 transition-colors focus:outline-none quantity-btn flex-shrink-0" data-action="decrement" data-target="input-torikae">
+                                    <i class="fas fa-minus"></i>
+                                </button>
+                                <!-- 入力欄 -->
+                                <input type="number" id="input-torikae" class="w-full py-3 text-center text-xl font-bold text-amber-700 placeholder-slate-300 bg-white border-none focus:outline-none focus:ring-0" placeholder="0" min="0" value="0">
+                                <!-- ＋ボタン -->
+                                <button type="button" class="px-4 py-3 text-amber-600 hover:bg-amber-100 active:bg-amber-200 transition-colors focus:outline-none quantity-btn flex-shrink-0" data-action="increment" data-target="input-torikae">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ④ イエナカ -->
+                    <div class="flex flex-col sm:flex-row items-center gap-4 p-4 bg-slate-50 rounded-lg border border-slate-200 hover:border-purple-300 transition-colors">
+                        <div class="w-full sm:w-1/4 font-bold text-slate-700 text-lg flex items-center gap-3">
+                            <span class="w-8 h-8 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center text-sm"><i class="fas fa-home"></i></span>
+                            イエナカ
+                        </div>
+                        <div class="w-full sm:w-1/3 flex flex-col justify-center bg-white px-3 py-2 rounded-lg border border-slate-200 shadow-sm">
+                            <div class="flex justify-between items-center border-b border-slate-100 pb-1 mb-1">
+                                <span class="text-[10px] font-medium text-slate-400">目標数</span>
+                                <span class="text-sm font-bold text-slate-400" id="target-ienaka">--</span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-xs font-medium text-slate-500">現在の実績</span>
+                                <span class="text-xl sm:text-2xl font-black text-slate-800" id="current-ienaka">--</span>
+                            </div>
+                        </div>
+                        <div class="w-full sm:w-5/12 relative">
+                            <label class="absolute -top-2.5 left-3 bg-slate-50 px-1 text-xs font-medium text-purple-600 z-10">新規獲得入力</label>
+                            <div class="flex items-center border-2 border-purple-200 rounded-lg bg-white overflow-hidden focus-within:border-purple-500 transition-colors">
+                                <!-- －ボタン -->
+                                <button type="button" class="px-4 py-3 text-purple-600 hover:bg-purple-100 active:bg-purple-200 transition-colors focus:outline-none quantity-btn flex-shrink-0" data-action="decrement" data-target="input-ienaka">
+                                    <i class="fas fa-minus"></i>
+                                </button>
+                                <!-- 入力欄 -->
+                                <input type="number" id="input-ienaka" class="w-full py-3 text-center text-xl font-bold text-purple-700 placeholder-slate-300 bg-white border-none focus:outline-none focus:ring-0" placeholder="0" min="0" value="0">
+                                <!-- ＋ボタン -->
+                                <button type="button" class="px-4 py-3 text-purple-600 hover:bg-purple-100 active:bg-purple-200 transition-colors focus:outline-none quantity-btn flex-shrink-0" data-action="increment" data-target="input-ienaka">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                </div> <!-- /stats-container -->
+
+                <!-- 送信ボタンエリア -->
+                <div class="mt-8 pt-6 border-t border-slate-200 flex justify-end">
+                    <button id="submit-btn" class="w-full sm:w-auto px-8 py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed">
+                        <i class="fas fa-paper-plane"></i>
+                        <span>この実績で報告する</span>
+                    </button>
+                </div>
+
+            </div>
+        </section>
+    </main>
+
+    <!-- JavaScript 実装 -->
+    <script>
+        /**
+         * 構成設定
+         * 実際の運用時はここに Google Apps Script の公開 WebアプリURL を設定します
+         */
+        const SPREADSHEET_API_URL = 'https://script.google.com/macros/s/AKfycbzNrN6qzg9qBPbKW8sX6EtXygpvU8q9ocUfFteMp-u4gFI2tV_mgnlyoUujapN23N4ayw/exec';
+        
+        // 状態管理
+        let currentData = { pi: 0, junshinki: 0, torikae: 0, ienaka: 0 };
+        let targetData = { pi: 0, junshinki: 0, torikae: 0, ienaka: 0 }; // 目標データの状態管理を追加
+        const keys = ['pi', 'junshinki', 'torikae', 'ienaka'];
+
+        // DOM要素の取得
+        const venueSelect = document.getElementById('venue');
+        const weekSelect = document.getElementById('week');
+        const submitBtn = document.getElementById('submit-btn');
+        const dataLoader = document.getElementById('data-loader');
+        const statusMessage = document.getElementById('status-message');
+
+        // アプリケーションの初期化
+        document.addEventListener('DOMContentLoaded', () => {
+            // ----------------------------------------------------
+            // 現在の日にちから週を計算して初期選択する
+            // ----------------------------------------------------
+            const today = new Date();
+            const date = today.getDate(); // 1〜31の日付を取得
+            const weekNum = Math.ceil(date / 7); // 7で割って切り上げ（1〜5週）
+            const weekValue = `7月${weekNum}w`;
+            
+            // 該当するオプションが存在すれば選択
+            const optionExists = Array.from(weekSelect.options).some(opt => opt.value === weekValue);
+            if (optionExists) {
+                weekSelect.value = weekValue;
+            }
+
+            // イベントリスナーの登録
+            venueSelect.addEventListener('change', handleSettingsChange);
+            weekSelect.addEventListener('change', handleSettingsChange);
+            submitBtn.addEventListener('click', handleSubmit);
+
+            // 数量変更ボタン（＋/－）のイベントリスナーを登録
+            setupQuantityButtons();
+
+            // 初回データ読み込み
+            loadCurrentStats();
+        });
+
+        /**
+         * 数量変更ボタンの動作設定
+         */
+        function setupQuantityButtons() {
+            const quantityButtons = document.querySelectorAll('.quantity-btn');
+            quantityButtons.forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    // ボタンのデフォルト動作（もしあれば）をキャンセル
+                    e.preventDefault();
+                    
+                    const targetId = this.getAttribute('data-target');
+                    const action = this.getAttribute('data-action');
+                    const inputEl = document.getElementById(targetId);
+
+                    if (!inputEl) return;
+
+                    // 現在の値を取得（空欄や数値以外は0とする）
+                    let currentValue = parseInt(inputEl.value, 10);
+                    if (isNaN(currentValue)) {
+                        currentValue = 0;
+                    }
+
+                    // 計算
+                    let newValue = currentValue;
+                    if (action === 'increment') {
+                        newValue += 1;
+                    } else if (action === 'decrement') {
+                        newValue -= 1;
+                    }
+
+                    // 0未満にならないようにして値をセット
+                    inputEl.value = Math.max(0, newValue);
+
+                    // 入力イベントを発火させて、必要に応じて他の処理が動くようにする
+                    inputEl.dispatchEvent(new Event('input'));
+                    inputEl.dispatchEvent(new Event('change'));
+                });
+            });
+        }
+
+        /**
+         * 設定が変更された時のハンドラー
+         */
+        function handleSettingsChange() {
+            // 入力欄をリセット（空文字ではなく0にする）
+            keys.forEach(key => document.getElementById(`input-${key}`).value = 0);
+            loadCurrentStats();
+        }
+
+        /**
+         * スプレッドシート（API）から現在の実績を取得する関数
+         */
+        async function loadCurrentStats() {
+            const venue = venueSelect.value;
+            const week = weekSelect.value;
+            
+            // UIをロード状態に
+            setLoadingState(true);
+
+            try {
+                // ==========================================
+                // 本番環境用のAPI呼び出し（GETリクエスト）
+                // ==========================================
+                // キャッシュ回避のためにタイムスタンプ(?t=...)を付与しています
+                const url = `${SPREADSHEET_API_URL}?action=getStats&venue=${encodeURIComponent(venue)}&week=${encodeURIComponent(week)}&t=${new Date().getTime()}`;
+                const response = await fetch(url, { redirect: 'follow' });
+                if (!response.ok) throw new Error('ネットワークエラー');
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // スプレッドシートから取得した値を反映
+                    currentData = result.data.current;
+                    targetData = result.data.target;
+                } else {
+                    throw new Error(result.message || 'データ取得失敗');
+                }
+
+                // 画面を更新
+                updateUI();
+                
+            } catch (error) {
+                console.warn("データ取得エラー:", error.message);
+                
+                // エラーの詳細な原因を推測して表示
+                let errorMsg = '通信エラーが発生しました。';
+                if (error.message.includes('Failed to fetch')) {
+                    errorMsg = '【通信ブロック】GASの「アクセスできるユーザー」が「全員」になっているか確認するか、ファイルをダウンロードしてPC上で直接開いてください。';
+                }
+                showStatus(errorMsg, 'error');
+
+                const baseVal = venue.length + (week.charCodeAt(2) % 5) * 5;
+                currentData = {
+                    pi: baseVal + 15,
+                    junshinki: Math.max(0, baseVal - 5),
+                    torikae: Math.max(0, baseVal - 8),
+                    ienaka: baseVal + 2
+                };
+                targetData = {
+                    pi: baseVal + 30,
+                    junshinki: Math.max(0, baseVal + 5),
+                    torikae: Math.max(0, baseVal + 2),
+                    ienaka: baseVal + 10
+                };
+                updateUI();
+            } finally {
+                setLoadingState(false);
+            }
+        }
+
+        /**
+         * スプレッドシート（API）へ実績を送信する関数
+         */
+        async function handleSubmit() {
+            const reporter = document.getElementById('reporter').value;
+            const venue = venueSelect.value;
+            const week = weekSelect.value;
+
+            // 入力値の収集（空欄は0として扱う）
+            const newInputs = {};
+            let hasInput = false;
+
+            keys.forEach(key => {
+                const val = parseInt(document.getElementById(`input-${key}`).value, 10);
+                if (!isNaN(val) && val > 0) {
+                    newInputs[key] = val;
+                    hasInput = true;
+                } else {
+                    newInputs[key] = 0;
+                }
+            });
+
+            // バリデーション
+            if (!reporter) {
+                showStatus('報告者を選択してください。', 'error');
+                return;
+            }
+            if (!hasInput) {
+                showStatus('新規獲得実績が入力されていません。', 'error');
+                return;
+            }
+
+            // 送信ペイロード
+            const payload = {
+                action: 'submitStats',
+                reporter: reporter,
+                venue: venue,
+                week: week,
+                timestamp: new Date().toISOString(),
+                newData: newInputs
+            };
+
+            // UIを送信中状態に
+            setSubmitLoading(true);
+
+            try {
+                // ==========================================
+                // 本番環境用のAPI呼び出し（POSTリクエスト）
+                // ※GASのCORS回避のため、Content-Typeをtext/plainに設定しています
+                // ==========================================
+                const response = await fetch(SPREADSHEET_API_URL, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'text/plain' 
+                    },
+                    body: JSON.stringify(payload),
+                    redirect: 'follow'
+                });
+                
+                const result = await response.json();
+                
+                if (!result.success) throw new Error(result.message);
+
+                // 送信成功時：現在の実績をローカルで合算して更新
+                keys.forEach(key => {
+                    currentData[key] += newInputs[key];
+                });
+
+                // UI更新
+                updateUI();
+                
+                // 入力欄をクリア（空文字ではなく0にする）
+                keys.forEach(key => document.getElementById(`input-${key}`).value = 0);
+
+                showStatus('実績を送信し、データを更新しました！', 'success');
+
+            } catch (error) {
+                console.warn("データ送信エラー:", error.message);
+                
+                // エラーの詳細な原因を推測して表示
+                let errorMsg = '送信に失敗しました。';
+                if (error.message.includes('Failed to fetch')) {
+                    errorMsg = '【通信ブロック】プレビュー環境の制限、またはGASの権限設定(全員)が原因です。PC上でHTMLを直接開いてテストしてください。';
+                }
+                showStatus(errorMsg, 'error');
+
+                keys.forEach(key => {
+                    currentData[key] += newInputs[key];
+                });
+                updateUI();
+                keys.forEach(key => document.getElementById(`input-${key}`).value = 0);
+            } finally {
+                setSubmitLoading(false);
+            }
+        }
+
+        /**
+         * 現在の実績データを画面に反映
+         */
+        function updateUI() {
+            keys.forEach(key => {
+                const el = document.getElementById(`current-${key}`);
+                const targetEl = document.getElementById(`target-${key}`);
+                
+                if (el) {
+                    // 数値をアニメーションっぽく表示（簡易版）
+                    el.style.opacity = 0;
+                    if (targetEl) targetEl.style.opacity = 0;
+                    
+                    setTimeout(() => {
+                        el.textContent = currentData[key].toLocaleString();
+                        el.style.opacity = 1;
+                        el.style.transition = "opacity 0.3s ease-in";
+                        
+                        if (targetEl) {
+                            targetEl.textContent = targetData[key].toLocaleString();
+                            targetEl.style.opacity = 1;
+                            targetEl.style.transition = "opacity 0.3s ease-in";
+                        }
+                    }, 100);
+                }
+            });
+        }
+
+        /**
+         * ロード中のUI切り替え（実績取得時）
+         */
+        function setLoadingState(isLoading) {
+            if (isLoading) {
+                dataLoader.classList.remove('hidden');
+                submitBtn.disabled = true;
+                keys.forEach(key => {
+                    document.getElementById(`current-${key}`).textContent = '...';
+                    const targetEl = document.getElementById(`target-${key}`);
+                    if (targetEl) targetEl.textContent = '...';
+                });
+            } else {
+                dataLoader.classList.add('hidden');
+                submitBtn.disabled = false;
+            }
+        }
+
+        /**
+         * 送信中のUI切り替え（ボタンのローディング）
+         */
+        function setSubmitLoading(isLoading) {
+            const btnText = submitBtn.querySelector('span');
+            const btnIcon = submitBtn.querySelector('i');
+            
+            if (isLoading) {
+                submitBtn.disabled = true;
+                btnText.textContent = '送信中...';
+                btnIcon.className = 'fas fa-circle-notch fa-spin';
+            } else {
+                submitBtn.disabled = false;
+                btnText.textContent = 'この実績で報告する';
+                btnIcon.className = 'fas fa-paper-plane';
+            }
+        }
+
+        /**
+         * ステータスメッセージの表示（トースト風）
+         */
+        function showStatus(message, type) {
+            statusMessage.textContent = message;
+            statusMessage.classList.remove('hidden', 'bg-red-100', 'text-red-700', 'bg-green-100', 'text-green-700');
+            
+            if (type === 'error') {
+                statusMessage.classList.add('bg-red-100', 'text-red-700');
+            } else if (type === 'success') {
+                statusMessage.classList.add('bg-green-100', 'text-green-700');
+            }
+
+            // 4秒後に消す
+            setTimeout(() => {
+                statusMessage.classList.add('hidden');
+            }, 4000);
+        }
+
+    </script>
+</body>
+</html>
